@@ -1,0 +1,41 @@
+.\" $Id$
+.Dd August 25, 2004
+.Dt ZZZSH 1
+.Os
+.Sh NAME
+.Nm zzzsh
+.Nd the silent shell
+.Sh SYNOPSIS
+.Nm zzzsh
+.Op Fl c Ar command ...
+.Sh DESCRIPTION
+The
+.Nm
+utility is a minimalistic command interpreter.
+It is designed for seriously restricted privileges for a user because it
+offers as few features as possible and only allows to run a set of
+programs that have been configured when
+.Nm
+was compiled.
+.Pp
+.Nm
+supports the following command-line options:
+.Bl -tag -width indent
+.It Fl c Ar command ...
+Instead of reading a command from the user interactively (if interactive
+support has even been compiled into
+.Nm ) ,
+execute the
+.Ar command
+specified in the argument list.
+All subsequent arguments will be considered part of the command as well.
+.El
+.Pp
+.Nm
+exits with the exit status of the last command that it executed on
+behalf of the user or with one of the error codes from
+.Xr sysexits 3
+on failure.
+.Sh SEE ALSO
+.Xr ksh 1 ,
+.Xr sysexits 3
