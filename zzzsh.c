@@ -1,18 +1,20 @@
 /* $Id$ */
 /*
-	Public Domain
-	Jared Yanovich 2003
-	zzzsh - a minimal shell
+ * Written by Jared Yanovich
+ * This file belongs to the public domain.
+ * zzzsh - a minimal shell
  */
 
+#include <err.h>
+#include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
-#include <unistd.h>
 #include <sysexits.h>
-#include <err.h>
+#include <unistd.h>
 
+void usage(void);
 void execute(char *);
 
 struct allowprog {
@@ -31,47 +33,42 @@ char *nenvp[] = {
 int
 main(int argc, char *argv[])
 {
-	char buf[BUFSIZ+1], ch, **t;
-	extern char *optarg;
+	char buf[BUFSIZ], ch, **t;
 
-	while ((ch = getopt(argc, argv, "c")) != EOF) {
+	while ((ch = getopt(argc, argv, "c:")) != EOF)
 		switch (ch) {
-			case 'c':
-				memset(buf, '\0', BUFSIZ);
-				if (optarg != NULL) {
-					strlcpy(buf, optarg+2, sizeof buf);
-					strlcat(buf, " ", sizeof buf);
-				}
-				/* Traverse subsequent arguments. */
-				for (t = argv + optind; *t != NULL && strlen(buf) < BUFSIZ; t++) {
-					strlcat(buf, *t, sizeof buf);
-					if (t[1] != NULL)
-						strlcat(buf, " ", sizeof buf);
-				}
-				execute(buf);
-				return 0;
-			default:
-				errx(EX_USAGE, "Unknown option: %c", ch);
+		case 'c':
+			(void)strlcpy(buf, optarg, sizeof(buf));
+			for (t = argv + optind + 1; *t != NULL; t++) {
+				(void)strlcat(buf, " ", sizeof(buf));
+				(void)strlcat(buf, *t, sizeof(buf));
+			}
+			execute(buf);
+			exit(EXIT_SUCCESS);
+			/* NOTREACHED */
+		default:
+			usage();
+			/* NOTREACHED */
 		}
-	}
 
 #ifdef INTERACTIVE
 	for (;;) {
-		printf("$ ");
+		(void)printf("$ ");
 		if (fgets(buf, sizeof buf, stdin) == NULL) {
-			/* Overwrite prompt */
-		    	printf("\r    \r");
+			/* Overwrite prompt. */
+		    	(void)printf("\r    \r");
 			break;
 		}
-		/* Remove newline */
-		buf[strlen(buf) - 1] = '\0';
+		/* Remove newline. */
+		if (buf[strlen(buf) - 1] == '\n')
+			buf[strlen(buf) - 1] = '\0';
 		if ((strcmp(buf, "exit") == 0) ||
 		    (strcmp(buf, "logout") == 0))
 			break;
 		execute(buf);
 	}
 #else
-	printf("You cannot log in to this account.\n");
+	(void)printf("You cannot log in to this account.\n");
 #endif
 
 	return 0;
@@ -80,8 +77,8 @@ main(int argc, char *argv[])
 void
 execute(char *cmd)
 {
-	char *s, **argv;
 	struct allowprog *p;
+	char *s, **argv;
 	int len, pos;
 
 	while ((*cmd == ' ' || *cmd == '\t' || *cmd == '\n') &&
@@ -130,5 +127,15 @@ execute(char *cmd)
 	}
 	if ((s = strpbrk(cmd, " \t\r\n")) != NULL)
 		*s = '\0';
-	warnx("%s: Permission denied", cmd);
+	errno = EPERM;
+	warn("%s", cmd);
+}
+
+void
+usage(void)
+{
+	extern char *__progname;
+
+	(void)fprintf(stderr, "usage: %s [-c command ...]\n", __progname);
+	exit(EX_USAGE);
 }
