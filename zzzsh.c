@@ -1,13 +1,19 @@
 /* $Id$ */
+/*
+	Public Domain
+	Jared Yanovich 2003
+	zzzsh - a minimal shell
+ */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #include <unistd.h>
+#include <err.h>
+#include <sysexits.h>
 
-void delegate(char *);
-void report(char *, ...);
+void execute(char *);
 
 struct allowprog {
 	char *name;
@@ -24,43 +30,53 @@ struct allowprog {
 
 int main(int argc, char *argv[])
 {
-	char buf[BUFSIZ+1], prog[BUFSIZ], ch, **t;
+	char buf[BUFSIZ+1], ch, **t;
 	extern char *optarg;
 
 	while ((ch = getopt(argc, argv, "c")) != EOF) {
 		switch (ch) {
 			case 'c':
-				bzero(buf, BUFSIZ);
+				memset(buf, '\0', BUFSIZ);
 				if (optarg != NULL) {
-					strncpy(buf, optarg+2, BUFSIZ);
-					buf[BUFSIZ] = '\0';
-					strncat(buf, " ", BUFSIZ-strlen(buf));
-					buf[BUFSIZ] = '\0';
+					strlcpy(buf, optarg+2, sizeof buf);
+					strlcat(buf, " ", sizeof buf);
 				}
 				/* traverse subsequent arguments */
-				for (t = argv+optind; *t != NULL && strlen(buf) < BUFSIZ; t++) {
-					strncat(buf, *t, BUFSIZ-strlen(buf));
-					buf[BUFSIZ] = '\0';
-					if (t[1] != NULL) {
-						strncat(buf, " ", BUFSIZ-strlen(buf));
-						buf[BUFSIZ] = '\0';
-					}
+				for (t = argv + optind; *t != NULL && strlen(buf) < BUFSIZ; t++) {
+					strlcat(buf, *t, sizeof buf);
+					if (t[1] != NULL)
+						strlcat(buf, " ", sizeof buf);
 				}
-				delegate(buf);
+				execute(buf);
 				return 0;
 			default:
-				errx("Unknown option: %c", ch);
+				errx(EX_USAGE, "Unknown option: %c", ch);
 		}
 	}
 
-//	while (fgets(buf, BUFSIZ, stdin) != NULL)
-//		delegate(buf);
+#ifdef INTERACTIVE
+	for (;;) {
+		printf("$ ");
+		if (fgets(buf, sizeof buf, stdin) == NULL) {
+			/* Overwrite prompt */
+		    	printf("\r    \r");
+			break;
+		}
+		/* Remove newline */
+		buf[strlen(buf) - 1] = '\0';
+		if ((strcmp(buf, "exit") == 0) ||
+		    (strcmp(buf, "logout") == 0))
+			break;
+		execute(buf);
+	}
+#else
 	printf("You cannot log in to this account.\n");
+#endif
 
 	return 0;
 }
 
-void delegate(char *cmd)
+void execute(char *cmd)
 {
 	char *s;
 	struct allowprog *p;
@@ -73,15 +89,5 @@ void delegate(char *cmd)
 	}
 	if ((s = strpbrk(cmd, " \t\r\n")) != NULL)
 		*s = '\0';
-	report("%s: Permission denied", cmd);
-}
-
-void report(char *msg, ...)
-{
-	va_list p;
-	va_start(p, msg);
-	printf("zzzsh: ");
-	vprintf(msg, p);
-	printf("\n");
-	va_end(p);
+	warnx("%s: Permission denied", cmd);
 }
